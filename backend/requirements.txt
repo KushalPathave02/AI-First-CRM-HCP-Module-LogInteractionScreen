@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+gunicorn
+pymongo
+motor
+pydantic
+pydantic-settings
+python-dotenv
+groq
+langgraph
+langchain
+langchain-groq
+langchain-community
+python-multipart
+websockets
