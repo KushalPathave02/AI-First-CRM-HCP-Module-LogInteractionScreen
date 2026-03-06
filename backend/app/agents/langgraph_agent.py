@@ -10,6 +10,12 @@ class AgentState(TypedDict):
 
 import datetime
 
+from app.tools.log_interaction import log_interaction
+from app.tools.edit_interaction import edit_interaction
+from app.tools.suggest_follow_up import suggest_follow_up
+from app.tools.summarize_interaction import summarize_interaction
+from app.tools.search_hcp import search_hcp
+
 def call_model(state: AgentState):
     last_message = state['messages'][-1].content
     current_form = state.get('form_data', {})
@@ -17,7 +23,7 @@ def call_model(state: AgentState):
     yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
     
     prompt = f"""
-    You are an AI assistant for a CRM. Your task is to extract interaction details from the user's message.
+    You are an AI assistant for a CRM. Your task is to extract interaction details and decide which tool to use.
     
     CURRENT DATE: {today}
     YESTERDAY: {yesterday}
@@ -27,42 +33,28 @@ def call_model(state: AgentState):
     
     USER MESSAGE: "{last_message}"
     
-    INSTRUCTIONS:
-    1. EXTRACT and structure the following fields:
-       - hcp_name: Full name of the HCP.
-       - interaction_type: Strictly 'Meeting', 'Call', or 'Email'.
-       - date: YYYY-MM-DD format. Handle relative dates: 'today'={today}, 'yesterday'={yesterday}.
-       - time: HH:MM format.
-       - attendees: List of names mentioned.
-       - topics_discussed: Key points of conversation.
-       - materials_shared: List of documents or materials shared.
-       - samples_distributed: List of product samples given.
-       - sentiment: Strictly 'Positive', 'Neutral', or 'Negative'.
-       - outcome: Result or agreement reached.
-       - follow_up: Specific next steps.
-    
-    2. CONVERSATIONAL RESPONSE:
-       Confirm exactly what was updated. If multiple fields were filled, list them professionally.
-       Example: "I've recorded the meeting with Dr. Smith for today, including the positive sentiment and the follow-up to send the brochure."
+    AVAILABLE TOOLS:
+    1. LogInteraction: Use when user wants to save/log the current form.
+    2. EditInteraction: Use when user wants to update an existing record.
+    3. SuggestFollowUp: Use when user asks for next steps or suggestions.
+    4. Summarize: Use when user asks for a summary of the interaction.
+    5. SearchHCP: Use when user wants to find an HCP.
+    6. ExtractFields: Default action to update the current form fields.
 
-    3. OUTPUT FORMAT:
-       Respond ONLY with a JSON object:
-       {{
-         "extracted_fields": {{ 
-           "hcp_name": "...",
-           "interaction_type": "...",
-           "date": "...",
-           "time": "...",
-           "attendees": [...],
-           "topics_discussed": "...",
-           "materials_shared": [...],
-           "samples_distributed": [...],
-           "sentiment": "...",
-           "outcome": "...",
-           "follow_up": "..."
-         }},
-         "reply": "Your conversational message here"
-       }}
+    INSTRUCTIONS:
+    - If the user is providing details for the form, use 'ExtractFields'.
+    - If the user specifically asks to 'save', 'log', 'search', 'summarize', or 'suggest', mention the tool in your reply.
+    
+    EXTRACT and structure the following fields for 'ExtractFields':
+    - hcp_name, interaction_type, date, time, attendees, topics_discussed, materials_shared, samples_distributed, sentiment, outcome, follow_up.
+    
+    OUTPUT FORMAT:
+    Respond ONLY with a JSON object:
+    {{
+      "extracted_fields": {{ ... }},
+      "tool_used": "ExtractFields | LogInteraction | EditInteraction | SuggestFollowUp | Summarize | SearchHCP",
+      "reply": "Conversational confirmation of the action taken."
+    }}
     """
     
     response_text = get_groq_response(prompt)
